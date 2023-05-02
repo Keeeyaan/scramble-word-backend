@@ -21,12 +21,20 @@ function createNewGame(gameId) {
   const data = {
     id: gameId,
     players: [],
+    host: null,
+    gameStarted: false,
   };
 
   // Join the Room and wait for the other player
   this.join(gameId);
   this.emit("createdNewGame");
   rooms.push(data);
+
+  const room = rooms.find((room) => room.id === gameId);
+
+  if (room) {
+    room.host = this.id;
+  }
 
   console.log(`User ${this.id} created a server.`);
 }
@@ -38,7 +46,6 @@ function playerJoinsGame(data) {
 
   // If the room not exists...
   if (room === undefined) {
-    console.log("room not found!");
     this.emit("room-not-found", "This game session does not exist.");
     return;
   }
@@ -87,6 +94,15 @@ function onDisconnect() {
 
     room.players.splice(playerIndex, 1);
 
+    // If the disconnected player was the host, assign a new hos
+    if (room.host === this.id) {
+      if (room.players.length > 0) {
+        room.host = room.players[0].id;
+      } else {
+        rooms.splice(roomIndex, 1);
+      }
+    }
+
     // Emit the updated player list to the remaining players in the room
     this.to(room.id).emit("player-joined", {
       players: room.players.map((player) => player.name),
@@ -98,11 +114,6 @@ function onDisconnect() {
       id: `${this.id}${Math.random()}`,
       gameId: room.id,
     });
-
-    // If there are no players left in the room, remove the room
-    if (room.players.length === 0) {
-      rooms.splice(roomIndex, 1);
-    }
   }
 
   console.log(rooms);
