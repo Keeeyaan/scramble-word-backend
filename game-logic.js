@@ -34,6 +34,7 @@ function createNewGame(gameId) {
 
   if (room) {
     room.host = this.id;
+    this.emit("host", this.id);
   }
 
   console.log(`User ${this.id} created a server.`);
@@ -98,6 +99,13 @@ function onDisconnect() {
     if (room.host === this.id) {
       if (room.players.length > 0) {
         room.host = room.players[0].id;
+        clientIO.to(room.id).emit("host", room.host);
+        clientIO.to(room.id).emit("recieve-message", {
+          message: `${room.players[0].name} is now the new host.`,
+          name: "BOT",
+          id: `${this.id}${Math.random()}`,
+          gameId: room.id,
+        });
       } else {
         rooms.splice(roomIndex, 1);
       }
