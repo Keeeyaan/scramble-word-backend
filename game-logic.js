@@ -13,6 +13,10 @@ const initializeGame = (io, socket) => {
 
   socket.on("send-message", playerSendMessage);
 
+  socket.on("start-game-countdown", gameStartCountdown);
+
+  socket.on("game-start", gameStart);
+
   // Run code when the client disconnects from their socket session.
   socket.on("disconnect", onDisconnect);
 };
@@ -73,6 +77,16 @@ function playerSendMessage(data) {
   console.log(data);
   this.to(data.gameId).emit("recieve-message", data);
 }
+
+function gameStartCountdown(data) {
+  const { duration, gameId } = data;
+  this.to(gameId).emit("recieve-start-game-countdown", {
+    duration,
+    startCountdown: true,
+  });
+}
+
+function gameStart() {}
 
 function onDisconnect() {
   // Find the room that the disconnected player belonged to
