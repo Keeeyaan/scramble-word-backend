@@ -17,6 +17,8 @@ const initializeGame = (io, socket) => {
 
   socket.on("game-start", gameStart);
 
+  socket.on("turn-complete", turnComplete);
+
   // Run code when the client disconnects from their socket session.
   socket.on("disconnect", onDisconnect);
 };
@@ -27,6 +29,7 @@ function createNewGame(gameId) {
     players: [],
     host: null,
     gameStarted: false,
+    currentPlayerIndex: -1,
   };
 
   // Join the Room and wait for the other player
@@ -58,9 +61,7 @@ function playerJoinsGame(data) {
   this.join(gameId);
   room.players.push({ id: this.id, name: playerName, lives: 2 });
 
-  clientIO.to(gameId).emit("player-joined", {
-    players: room.players.map((player) => player.name),
-  });
+  clientIO.to(gameId).emit("player-joined", room.players);
 
   clientIO.to(gameId).emit("recieve-message", {
     message: `${playerName} joined the game.`,
@@ -86,7 +87,30 @@ function gameStartCountdown(data) {
   });
 }
 
-function gameStart() {}
+function gameStart(gameId) {
+  const room = rooms.find((room) => room.id == gameId);
+  room.currentPlayerIndex = 0;
+  if (room) {
+    room.gameStarted = true;
+    this.to(gameId).emit("recieve-game-start", {
+      gameStarted: room.gameStarted,
+      initialPlayer: room.players[room.currentPlayerIndex].id,
+    });
+  }
+}
+
+function turnComplete(gameId) {
+  const room = rooms.find((room) => room.id == gameId);
+  if (room) {
+    room.currentPlayerIndex = getNextPlayer(
+      room.currentPlayerIndex,
+      room.players.length
+    );
+    clientIO.to(gameId).emit("recieve-next-turn", {
+      nextPlayer: room.players[room.currentPlayerIndex].id,
+    });
+  }
+}
 
 function onDisconnect() {
   // Find the room that the disconnected player belonged to
@@ -126,9 +150,7 @@ function onDisconnect() {
     }
 
     // Emit the updated player list to the remaining players in the room
-    this.to(room.id).emit("player-joined", {
-      players: room.players.map((player) => player.name),
-    });
+    this.to(room.id).emit("player-joined", room.players);
 
     clientIO.to(room.id).emit("recieve-message", {
       message: `${player.name} left the game.`,
@@ -140,6 +162,11 @@ function onDisconnect() {
 
   console.log(rooms);
   console.log("a user disconnected", this.id);
+}
+
+//utility function
+function getNextPlayer(currentIndex, totalPlayers) {
+  return (currentIndex + 1) % totalPlayers; // Calculate the index of the next player
 }
 
 export default initializeGame;
